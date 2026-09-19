@@ -295,3 +295,20 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'katuwalmadan55@gmail.com'
 EMAIL_HOST_PASSWORD = 'lrsa giqa ylhc qgro'
+
+
+import os
+INTERNAL_API_KEY = "crURdE1AZq_2-cs5Y8G_J8aSd_lGuMF5kqFqDLBi84M"
+
+
+PHARMACY_AGENT_URL = os.getenv(
+    "PHARMACY_AGENT_URL",
+    "http://127.0.0.1:8001/api/chat/pharmacy-verify/"
+)
+
+PHARMACY_AGENT_TIMEOUT = int(
+    os.getenv(
+        "PHARMACY_AGENT_TIMEOUT",
+        "120"
+    )
+)

@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from django.utils.html import mark_safe
+from django.utils.html import format_html
+from django.utils import timezone
 
 from .models import (
     Users,
@@ -38,6 +39,8 @@ class CustomUserAdmin(UserAdmin):
     search_fields = (
         "email",
         "username",
+        "citizenship_number",
+        "pharmacy_license_number",
     )
 
     readonly_fields = (
@@ -46,6 +49,7 @@ class CustomUserAdmin(UserAdmin):
     )
 
     fieldsets = (
+
         (
             "Basic Information",
             {
@@ -53,6 +57,16 @@ class CustomUserAdmin(UserAdmin):
                     "email",
                     "username",
                     "password",
+                )
+            },
+        ),
+
+        (
+            "Identification",
+            {
+                "fields": (
+                    "citizenship_number",
+                    "pharmacy_license_number",
                 )
             },
         ),
@@ -112,6 +126,8 @@ class CustomUserAdmin(UserAdmin):
                     "password1",
                     "password2",
                     "role",
+                    "citizenship_number",
+                    "pharmacy_license_number",
                     "is_active",
                     "is_staff",
                     "is_superuser",
@@ -129,7 +145,7 @@ class CustomUserAdmin(UserAdmin):
 class RegistrationRequestAdmin(admin.ModelAdmin):
 
     # --------------------------------------------------------
-    # List page
+    # LIST PAGE
     # --------------------------------------------------------
 
     list_display = (
@@ -138,6 +154,7 @@ class RegistrationRequestAdmin(admin.ModelAdmin):
         "username",
         "role",
         "status",
+        "documents_display",
         "created_at",
         "reviewed_by",
         "reviewed_at",
@@ -162,7 +179,7 @@ class RegistrationRequestAdmin(admin.ModelAdmin):
     )
 
     # --------------------------------------------------------
-    # Read-only fields
+    # READ ONLY
     # --------------------------------------------------------
 
     readonly_fields = (
@@ -170,13 +187,16 @@ class RegistrationRequestAdmin(admin.ModelAdmin):
         "updated_at",
         "reviewed_at",
         "reviewed_by",
+
         "citizenship_front_preview",
         "citizenship_back_preview",
         "pharmacy_license_preview",
+
+        "documents_display",
     )
 
     # --------------------------------------------------------
-    # Admin form
+    # FORM
     # --------------------------------------------------------
 
     fieldsets = (
@@ -199,14 +219,17 @@ class RegistrationRequestAdmin(admin.ModelAdmin):
             {
                 "fields": (
                     "citizenship_number",
+
                     "citizenship_front",
                     "citizenship_front_preview",
+
                     "citizenship_back",
                     "citizenship_back_preview",
                 ),
 
                 "description": (
-                    "Patient citizenship documents."
+                    "Citizenship documents uploaded "
+                    "by the patient."
                 ),
             },
         ),
@@ -216,12 +239,14 @@ class RegistrationRequestAdmin(admin.ModelAdmin):
             {
                 "fields": (
                     "pharmacy_license_number",
+
                     "pharmacy_license_document",
                     "pharmacy_license_preview",
                 ),
 
                 "description": (
-                    "Pharmacy licence information."
+                    "Pharmacy license information "
+                    "and uploaded license document."
                 ),
             },
         ),
@@ -250,171 +275,288 @@ class RegistrationRequestAdmin(admin.ModelAdmin):
     )
 
     # ========================================================
+    # DOCUMENT STATUS IN LIST
+    # ========================================================
+
+    @admin.display(
+        description="Documents"
+    )
+    def documents_display(self, obj):
+
+        documents = []
+
+        if obj.citizenship_front:
+            documents.append("Citizenship Front")
+
+        if obj.citizenship_back:
+            documents.append("Citizenship Back")
+
+        if obj.pharmacy_license_document:
+            documents.append("License")
+
+        if not documents:
+            return "No documents"
+
+        return ", ".join(documents)
+
+    # ========================================================
     # CITIZENSHIP FRONT PREVIEW
     # ========================================================
 
-    def citizenship_front_preview(
-        self,
-        obj
-    ):
-
-        if (
-            obj.citizenship_front
-            and hasattr(
-                obj.citizenship_front,
-                "url"
-            )
-        ):
-
-            return mark_safe(
-                f'''
-                <div>
-                    <img
-                        src="{obj.citizenship_front.url}"
-                        style="
-                            max-width: 600px;
-                            max-height: 400px;
-                            object-fit: contain;
-                            border: 1px solid #ddd;
-                            border-radius: 8px;
-                            padding: 5px;
-                            background: #fff;
-                        "
-                    />
-                </div>
-                '''
-            )
-
-        return "No citizenship front image."
-
-    citizenship_front_preview.short_description = (
-        "Citizenship Front Preview"
+    @admin.display(
+        description="Citizenship Front Preview"
     )
+    def citizenship_front_preview(self, obj):
+
+        if not obj.citizenship_front:
+            return "No citizenship front image."
+
+        try:
+            url = obj.citizenship_front.url
+        except Exception:
+            return "File unavailable."
+
+        return format_html(
+            """
+            <div style="
+                margin-top:10px;
+                padding:15px;
+                background:#f8f9fa;
+                border:1px solid #ddd;
+                border-radius:8px;
+            ">
+                <img
+                    src="{}"
+                    style="
+                        max-width:700px;
+                        max-height:500px;
+                        width:auto;
+                        height:auto;
+                        object-fit:contain;
+                        border:1px solid #ccc;
+                        border-radius:6px;
+                        background:white;
+                    "
+                />
+
+                <br><br>
+
+                <a
+                    href="{}"
+                    target="_blank"
+                    style="
+                        display:inline-block;
+                        padding:8px 14px;
+                        background:#417690;
+                        color:white;
+                        border-radius:5px;
+                        text-decoration:none;
+                    "
+                >
+                    Open Full Image
+                </a>
+            </div>
+            """,
+            url,
+            url,
+        )
 
     # ========================================================
     # CITIZENSHIP BACK PREVIEW
     # ========================================================
 
-    def citizenship_back_preview(
-        self,
-        obj
-    ):
-
-        if (
-            obj.citizenship_back
-            and hasattr(
-                obj.citizenship_back,
-                "url"
-            )
-        ):
-
-            return mark_safe(
-                f'''
-                <div>
-                    <img
-                        src="{obj.citizenship_back.url}"
-                        style="
-                            max-width: 600px;
-                            max-height: 400px;
-                            object-fit: contain;
-                            border: 1px solid #ddd;
-                            border-radius: 8px;
-                            padding: 5px;
-                            background: #fff;
-                        "
-                    />
-                </div>
-                '''
-            )
-
-        return "No citizenship back image."
-
-    citizenship_back_preview.short_description = (
-        "Citizenship Back Preview"
+    @admin.display(
+        description="Citizenship Back Preview"
     )
+    def citizenship_back_preview(self, obj):
 
-    # ========================================================
-    # PHARMACY LICENCE PREVIEW
-    # ========================================================
+        if not obj.citizenship_back:
+            return "No citizenship back image."
 
-    def pharmacy_license_preview(
-        self,
-        obj
-    ):
+        try:
+            url = obj.citizenship_back.url
+        except Exception:
+            return "File unavailable."
 
-        if (
-            obj.pharmacy_license_document
-            and hasattr(
-                obj.pharmacy_license_document,
-                "url"
-            )
-        ):
+        return format_html(
+            """
+            <div style="
+                margin-top:10px;
+                padding:15px;
+                background:#f8f9fa;
+                border:1px solid #ddd;
+                border-radius:8px;
+            ">
+                <img
+                    src="{}"
+                    style="
+                        max-width:700px;
+                        max-height:500px;
+                        width:auto;
+                        height:auto;
+                        object-fit:contain;
+                        border:1px solid #ccc;
+                        border-radius:6px;
+                        background:white;
+                    "
+                />
 
-            url = obj.pharmacy_license_document.url
+                <br><br>
 
-            # Image preview
-            if url.lower().endswith(
-                (
-                    ".jpg",
-                    ".jpeg",
-                    ".png",
-                    ".webp",
-                )
-            ):
-
-                return mark_safe(
-                    f'''
-                    <div>
-                        <img
-                            src="{url}"
-                            style="
-                                max-width: 600px;
-                                max-height: 400px;
-                                object-fit: contain;
-                                border: 1px solid #ddd;
-                                border-radius: 8px;
-                                padding: 5px;
-                                background: #fff;
-                            "
-                        />
-                    </div>
-                    '''
-                )
-
-            # PDF / other document
-            return mark_safe(
-                f'''
                 <a
-                    href="{url}"
+                    href="{}"
                     target="_blank"
                     style="
-                        display: inline-block;
-                        padding: 10px 15px;
-                        background: #417690;
-                        color: white;
-                        border-radius: 5px;
-                        text-decoration: none;
+                        display:inline-block;
+                        padding:8px 14px;
+                        background:#417690;
+                        color:white;
+                        border-radius:5px;
+                        text-decoration:none;
                     "
                 >
-                    Open Pharmacy Licence Document
+                    Open Full Image
                 </a>
-                '''
-            )
-
-        return "No pharmacy licence document."
-
-    pharmacy_license_preview.short_description = (
-        "Pharmacy Licence Preview"
-    )
+            </div>
+            """,
+            url,
+            url,
+        )
 
     # ========================================================
-    # ACTION: ACCEPT
+    # PHARMACY LICENSE PREVIEW
+    # ========================================================
+
+    @admin.display(
+        description="Pharmacy License Preview"
+    )
+    def pharmacy_license_preview(self, obj):
+
+        if not obj.pharmacy_license_document:
+            return "No pharmacy license document."
+
+        try:
+            url = obj.pharmacy_license_document.url
+        except Exception:
+            return "File unavailable."
+
+        filename = str(
+            obj.pharmacy_license_document.name
+        ).lower()
+
+        # ----------------------------------------------------
+        # IMAGE
+        # ----------------------------------------------------
+
+        if filename.endswith(
+            (
+                ".jpg",
+                ".jpeg",
+                ".png",
+                ".webp",
+                ".gif",
+            )
+        ):
+
+            return format_html(
+                """
+                <div style="
+                    margin-top:10px;
+                    padding:15px;
+                    background:#f8f9fa;
+                    border:1px solid #ddd;
+                    border-radius:8px;
+                ">
+
+                    <img
+                        src="{}"
+                        style="
+                            max-width:700px;
+                            max-height:500px;
+                            width:auto;
+                            height:auto;
+                            object-fit:contain;
+                            border:1px solid #ccc;
+                            border-radius:6px;
+                            background:white;
+                        "
+                    />
+
+                    <br><br>
+
+                    <a
+                        href="{}"
+                        target="_blank"
+                        style="
+                            display:inline-block;
+                            padding:8px 14px;
+                            background:#417690;
+                            color:white;
+                            border-radius:5px;
+                            text-decoration:none;
+                        "
+                    >
+                        Open Full License
+                    </a>
+
+                </div>
+                """,
+                url,
+                url,
+            )
+
+        # ----------------------------------------------------
+        # PDF / OTHER DOCUMENT
+        # ----------------------------------------------------
+
+        return format_html(
+            """
+            <div style="
+                margin-top:10px;
+                padding:15px;
+                background:#f8f9fa;
+                border:1px solid #ddd;
+                border-radius:8px;
+            ">
+
+                <strong>
+                    Pharmacy License Document
+                </strong>
+
+                <br><br>
+
+                <a
+                    href="{}"
+                    target="_blank"
+                    style="
+                        display:inline-block;
+                        padding:10px 16px;
+                        background:#417690;
+                        color:white;
+                        border-radius:5px;
+                        text-decoration:none;
+                    "
+                >
+                    Open License Document
+                </a>
+
+            </div>
+            """,
+            url,
+        )
+
+    # ========================================================
+    # ADMIN ACTIONS
     # ========================================================
 
     actions = [
         "accept_selected",
         "deny_selected",
     ]
+
+    # ========================================================
+    # ACCEPT
+    # ========================================================
 
     @admin.action(
         description="Accept selected registrations"
@@ -435,9 +577,9 @@ class RegistrationRequestAdmin(admin.ModelAdmin):
                 skipped += 1
                 continue
 
-            # ----------------------------------------------
-            # Check duplicate email
-            # ----------------------------------------------
+            # ------------------------------------------------
+            # EMAIL
+            # ------------------------------------------------
 
             if Users.objects.filter(
                 email=registration.email
@@ -455,9 +597,9 @@ class RegistrationRequestAdmin(admin.ModelAdmin):
                 skipped += 1
                 continue
 
-            # ----------------------------------------------
-            # Check duplicate username
-            # ----------------------------------------------
+            # ------------------------------------------------
+            # USERNAME
+            # ------------------------------------------------
 
             if Users.objects.filter(
                 username=registration.username
@@ -475,42 +617,118 @@ class RegistrationRequestAdmin(admin.ModelAdmin):
                 skipped += 1
                 continue
 
-            # ----------------------------------------------
-            # Create actual user
-            # ----------------------------------------------
+            # ------------------------------------------------
+            # CITIZENSHIP
+            # ------------------------------------------------
+
+            if (
+                registration.role == "patient"
+                and registration.citizenship_number
+                and Users.objects.filter(
+                    citizenship_number=(
+                        registration.citizenship_number
+                    )
+                ).exists()
+            ):
+
+                self.message_user(
+                    request,
+                    (
+                        f"Skipped {registration.username}: "
+                        "citizenship number already exists."
+                    ),
+                    level="error"
+                )
+
+                skipped += 1
+                continue
+
+            # ------------------------------------------------
+            # PHARMACY LICENSE
+            # ------------------------------------------------
+
+            if (
+                registration.role == "pharmacy"
+                and registration.pharmacy_license_number
+                and Users.objects.filter(
+                    pharmacy_license_number=(
+                        registration.pharmacy_license_number
+                    )
+                ).exists()
+            ):
+
+                self.message_user(
+                    request,
+                    (
+                        f"Skipped {registration.username}: "
+                        "pharmacy license already exists."
+                    ),
+                    level="error"
+                )
+
+                skipped += 1
+                continue
+
+            # ------------------------------------------------
+            # CREATE USER
+            # ------------------------------------------------
 
             user = Users(
                 email=registration.email,
+
                 username=registration.username,
+
                 role=registration.role,
-                password=registration.password,
+
+                citizenship_number=(
+                    registration.citizenship_number
+                    if registration.role == "patient"
+                    else None
+                ),
+
+                pharmacy_license_number=(
+                    registration.pharmacy_license_number
+                    if registration.role == "pharmacy"
+                    else None
+                ),
+
                 is_active=True,
+
+                is_staff=(
+                    registration.role == "pharmacy"
+                ),
             )
+
+            # IMPORTANT:
+            # RegistrationRequest.password already contains
+            # the hashed password.
+
+            user.password = registration.password
 
             user.save()
 
-            # ----------------------------------------------
-            # Create profile
-            # ----------------------------------------------
+            # ------------------------------------------------
+            # PROFILE
+            # ------------------------------------------------
 
-            UserProfile.objects.create(
+            UserProfile.objects.get_or_create(
                 user=user,
-                phone_number=registration.phone_number,
+                defaults={
+                    "phone_number": (
+                        registration.phone_number
+                    )
+                }
             )
 
-            # ----------------------------------------------
-            # Update registration
-            # ----------------------------------------------
+            # ------------------------------------------------
+            # REGISTRATION
+            # ------------------------------------------------
 
             registration.status = "accepted"
 
-            registration.reviewed_by = (
-                request.user
-            )
+            registration.reviewed_by = request.user
 
-            registration.reviewed_at = (
-                registration.updated_at
-            )
+            registration.reviewed_at = timezone.now()
 
             registration.rejection_reason = None
 
@@ -527,7 +745,7 @@ class RegistrationRequestAdmin(admin.ModelAdmin):
         )
 
     # ========================================================
-    # ACTION: DENY
+    # DENY
     # ========================================================
 
     @admin.action(
@@ -551,13 +769,9 @@ class RegistrationRequestAdmin(admin.ModelAdmin):
 
             registration.status = "denied"
 
-            registration.reviewed_by = (
-                request.user
-            )
+            registration.reviewed_by = request.user
 
-            registration.reviewed_at = (
-                timezone.now()
-            )
+            registration.reviewed_at = timezone.now()
 
             registration.rejection_reason = (
                 "Registration denied by administrator."
@@ -581,13 +795,11 @@ class RegistrationRequestAdmin(admin.ModelAdmin):
 # ============================================================
 
 @admin.register(UserProfile)
-class UserProfileAdmin(
-    admin.ModelAdmin
-):
+class UserProfileAdmin(admin.ModelAdmin):
 
     list_display = (
         "user",
-        "profile_image_tag",
+        "profile_image_display",
         "phone_number",
         "location",
         "birth_date",
@@ -595,7 +807,7 @@ class UserProfileAdmin(
     )
 
     readonly_fields = (
-        "profile_image_tag",
+        "profile_image_display",
     )
 
     search_fields = (
@@ -609,35 +821,38 @@ class UserProfileAdmin(
         "birth_date",
     )
 
-    def profile_image_tag(
-        self,
-        obj
-    ):
+    # ========================================================
+    # PROFILE IMAGE
+    # ========================================================
 
-        if (
-            obj.profile_image
-            and hasattr(
-                obj.profile_image,
-                "url"
-            )
-        ):
+    @admin.display(
+        description="Profile Image"
+    )
+    def profile_image_display(self, obj):
 
-            return mark_safe(
-                f'''
+        if not obj.profile_image:
+            return "No image"
+
+        try:
+            url = obj.profile_image.url
+        except Exception:
+            return "File unavailable"
+
+        return format_html(
+            """
+            <a href="{}" target="_blank">
                 <img
-                    src="{obj.profile_image.url}"
+                    src="{}"
                     width="80"
                     height="80"
                     style="
-                        object-fit: cover;
-                        border-radius: 5px;
+                        object-fit:cover;
+                        border-radius:8px;
+                        border:1px solid #ddd;
                     "
                 />
-                '''
-            )
-
-        return "Image not available"
-
-    profile_image_tag.short_description = (
-        "Profile Image"
-    )
+            </a>
+            """,
+            url,
+            url,
+        )

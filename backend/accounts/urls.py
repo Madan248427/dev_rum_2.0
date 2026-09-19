@@ -6,10 +6,15 @@ from .views import (
     rasa_get_token,
     rasa_verify_token,
 )
-
+from .views import PharmacyRegistrationView
 
 urlpatterns = [
 
+    path(
+        "register/pharmacy/",
+        PharmacyRegistrationView.as_view(),
+        name="pharmacy-register"
+    ),
     # ==========================================================
     # 🤖 RASA
     # ==========================================================

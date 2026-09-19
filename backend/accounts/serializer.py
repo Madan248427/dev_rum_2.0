@@ -47,6 +47,10 @@ class CustomUserSerializer(
 # REGISTRATION SERIALIZER
 # ============================================================
 
+# ============================================================
+# REGISTRATION SERIALIZER
+# ============================================================
+
 class RegistrationSerializer(
     serializers.ModelSerializer
 ):
@@ -105,14 +109,17 @@ class RegistrationSerializer(
         }
 
     # ========================================================
-    # VALIDATION
+    # EMAIL VALIDATION
     # ========================================================
 
     def validate_email(self, value):
 
         value = value.lower()
 
+        # ----------------------------------------------------
         # Check actual users
+        # ----------------------------------------------------
+
         if Users.objects.filter(
             email=value
         ).exists():
@@ -121,19 +128,46 @@ class RegistrationSerializer(
                 "An account with this email already exists."
             )
 
-        # Check pending registration
-        if RegistrationRequest.objects.filter(
-            email=value,
-            status="pending"
-        ).exists():
+        # ----------------------------------------------------
+        # Check previous registration requests
+        # ----------------------------------------------------
 
-            raise serializers.ValidationError(
-                "A registration with this email is already pending."
-            )
+        existing_request = (
+            RegistrationRequest.objects
+            .filter(email=value)
+            .order_by("-created_at")
+            .first()
+        )
+
+        if existing_request:
+
+            # Pending -> cannot register again
+            if existing_request.status == "pending":
+
+                raise serializers.ValidationError(
+                    "A registration with this email is already pending."
+                )
+
+            # Accepted -> cannot register again
+            elif existing_request.status == "accepted":
+
+                raise serializers.ValidationError(
+                    "A registration with this email has already been accepted."
+                )
+
+            # Denied -> allow registration again
 
         return value
 
+    # ========================================================
+    # USERNAME VALIDATION
+    # ========================================================
+
     def validate_username(self, value):
+
+        # ----------------------------------------------------
+        # Check actual users
+        # ----------------------------------------------------
 
         if Users.objects.filter(
             username=value
@@ -143,16 +177,40 @@ class RegistrationSerializer(
                 "This username is already taken."
             )
 
-        if RegistrationRequest.objects.filter(
-            username=value,
-            status="pending"
-        ).exists():
+        # ----------------------------------------------------
+        # Check previous registration requests
+        # ----------------------------------------------------
 
-            raise serializers.ValidationError(
-                "A registration with this username is already pending."
-            )
+        existing_request = (
+            RegistrationRequest.objects
+            .filter(username=value)
+            .order_by("-created_at")
+            .first()
+        )
+
+        if existing_request:
+
+            # Pending -> cannot register again
+            if existing_request.status == "pending":
+
+                raise serializers.ValidationError(
+                    "A registration with this username is already pending."
+                )
+
+            # Accepted -> cannot register again
+            elif existing_request.status == "accepted":
+
+                raise serializers.ValidationError(
+                    "A registration with this username has already been accepted."
+                )
+
+            # Denied -> allow registration again
 
         return value
+
+    # ========================================================
+    # MAIN VALIDATION
+    # ========================================================
 
     def validate(self, attrs):
 
@@ -184,12 +242,20 @@ class RegistrationSerializer(
 
         if role == "patient":
 
+            # ------------------------------------------------
+            # Citizenship number required
+            # ------------------------------------------------
+
             if not citizenship_number:
 
                 raise serializers.ValidationError({
                     "citizenship_number":
                     "Citizenship number is required for patients."
                 })
+
+            # ------------------------------------------------
+            # Citizenship front required
+            # ------------------------------------------------
 
             if not citizenship_front:
 
@@ -198,6 +264,10 @@ class RegistrationSerializer(
                     "Front citizenship photo is required."
                 })
 
+            # ------------------------------------------------
+            # Citizenship back required
+            # ------------------------------------------------
+
             if not citizenship_back:
 
                 raise serializers.ValidationError({
@@ -205,8 +275,60 @@ class RegistrationSerializer(
                     "Back citizenship photo is required."
                 })
 
-            # Patient should not send pharmacy information
+            # ------------------------------------------------
+            # Check citizenship number in Users
+            # ------------------------------------------------
+
+            if Users.objects.filter(
+                citizenship_number=citizenship_number
+            ).exists():
+
+                raise serializers.ValidationError({
+                    "citizenship_number":
+                    "This citizenship number is already registered."
+                })
+
+            # ------------------------------------------------
+            # Check citizenship number in RegistrationRequest
+            # ------------------------------------------------
+
+            existing_request = (
+                RegistrationRequest.objects
+                .filter(
+                    citizenship_number=citizenship_number
+                )
+                .order_by("-created_at")
+                .first()
+            )
+
+            if existing_request:
+
+                # Pending
+                if existing_request.status == "pending":
+
+                    raise serializers.ValidationError({
+                        "citizenship_number":
+                        "A registration with this citizenship number "
+                        "is already pending."
+                    })
+
+                # Accepted
+                elif existing_request.status == "accepted":
+
+                    raise serializers.ValidationError({
+                        "citizenship_number":
+                        "This citizenship number has already been accepted."
+                    })
+
+                # Denied
+                # Allow the user to submit again
+
+            # ------------------------------------------------
+            # Remove pharmacy fields for patient
+            # ------------------------------------------------
+
             attrs["pharmacy_license_number"] = None
+
             attrs["pharmacy_license_document"] = None
 
         # ====================================================
@@ -215,12 +337,20 @@ class RegistrationSerializer(
 
         elif role == "pharmacy":
 
+            # ------------------------------------------------
+            # Pharmacy licence number required
+            # ------------------------------------------------
+
             if not pharmacy_license_number:
 
                 raise serializers.ValidationError({
                     "pharmacy_license_number":
                     "Pharmacy licence number is required."
                 })
+
+            # ------------------------------------------------
+            # Pharmacy licence document required
+            # ------------------------------------------------
 
             if not pharmacy_license_document:
 
@@ -229,10 +359,69 @@ class RegistrationSerializer(
                     "Pharmacy licence document is required."
                 })
 
-            # Pharmacy should not send patient information
+            # ------------------------------------------------
+            # Check licence number in Users
+            # ------------------------------------------------
+
+            if Users.objects.filter(
+                pharmacy_license_number=pharmacy_license_number
+            ).exists():
+
+                raise serializers.ValidationError({
+                    "pharmacy_license_number":
+                    "This pharmacy licence number is already registered."
+                })
+
+            # ------------------------------------------------
+            # Check licence number in RegistrationRequest
+            # ------------------------------------------------
+
+            existing_request = (
+                RegistrationRequest.objects
+                .filter(
+                    pharmacy_license_number=
+                    pharmacy_license_number
+                )
+                .order_by("-created_at")
+                .first()
+            )
+
+            if existing_request:
+
+                # Pending
+                if existing_request.status == "pending":
+
+                    raise serializers.ValidationError({
+                        "pharmacy_license_number":
+                        "A registration with this licence number "
+                        "is already pending."
+                    })
+
+                # Accepted
+                elif existing_request.status == "accepted":
+
+                    raise serializers.ValidationError({
+                        "pharmacy_license_number":
+                        "This pharmacy licence number "
+                        "has already been accepted."
+                    })
+
+                # Denied
+                # Allow the user to submit again
+
+            # ------------------------------------------------
+            # Remove patient fields for pharmacy
+            # ------------------------------------------------
+
             attrs["citizenship_number"] = None
+
             attrs["citizenship_front"] = None
+
             attrs["citizenship_back"] = None
+
+        # ====================================================
+        # INVALID ROLE
+        # ====================================================
 
         else:
 
@@ -244,7 +433,7 @@ class RegistrationSerializer(
         return attrs
 
     # ========================================================
-    # CREATE PENDING REGISTRATION
+    # CREATE REGISTRATION REQUEST
     # ========================================================
 
     def create(self, validated_data):
@@ -253,16 +442,24 @@ class RegistrationSerializer(
             "password"
         )
 
-        # Hash password before storing it
+        # ----------------------------------------------------
+        # Hash password before storing
+        # ----------------------------------------------------
+
         validated_data["password"] = make_password(
             password
         )
+
+        # ----------------------------------------------------
+        # Create registration request
+        # ----------------------------------------------------
 
         registration = RegistrationRequest.objects.create(
             **validated_data
         )
 
         return registration
+
 
 
 # ============================================================
@@ -776,5 +973,81 @@ class ResetPasswordSerializer(
         PasswordResetOTP.objects.filter(
             user=user
         ).delete()
+
+
+class PharmacyRegistrationSerializer(serializers.ModelSerializer):
+
+    password = serializers.CharField(
+        write_only=True,
+        min_length=8
+    )
+
+    password_confirm = serializers.CharField(
+        write_only=True
+    )
+
+    class Meta:
+        model = Users
+
+        fields = [
+            "email",
+            "username",
+            "password",
+            "password_confirm",
+            "pharmacy_license_number",
+        ]
+
+    def validate_email(self, value):
+
+        if Users.objects.filter(email=value).exists():
+            raise serializers.ValidationError(
+                "A user with this email already exists."
+            )
+
+        return value
+
+    def validate_username(self, value):
+
+        if Users.objects.filter(username=value).exists():
+            raise serializers.ValidationError(
+                "This username is already taken."
+            )
+
+        return value
+
+    def validate_pharmacy_license_number(self, value):
+
+        if Users.objects.filter(
+            pharmacy_license_number=value
+        ).exists():
+
+            raise serializers.ValidationError(
+                "This pharmacy license number is already registered."
+            )
+
+        return value
+
+    def validate(self, attrs):
+
+        if attrs["password"] != attrs["password_confirm"]:
+            raise serializers.ValidationError({
+                "password_confirm": "Passwords do not match."
+            })
+
+        return attrs
+
+    def create(self, validated_data):
+
+        validated_data.pop("password_confirm")
+
+        password = validated_data.pop("password")
+
+        user = Users.objects.create_user(
+            password=password,
+            role="pharmacy",
+            **validated_data
+        )
+
+        return user
 
         

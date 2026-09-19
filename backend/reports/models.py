@@ -67,6 +67,13 @@ class Medicine(models.Model):
         max_length=50
     )
 
+    # Medicine price
+    price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0
+    )
+
     # ========================================================
     # AVAILABLE STOCK
     # ========================================================
@@ -77,16 +84,14 @@ class Medicine(models.Model):
 
     # ========================================================
     # PHARMACY
-    #
-    # The pharmacy that owns/stores this medicine.
     # ========================================================
 
     pharmacy = models.ForeignKey(
-    settings.AUTH_USER_MODEL,
-    on_delete=models.CASCADE,
-    related_name="medicines",
-    limit_choices_to={"role": "pharmacy"},
-)
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="medicines",
+        limit_choices_to={"role": "pharmacy"},
+    )
 
     # ========================================================
     # MEDICINE PHOTO
@@ -116,10 +121,6 @@ class Medicine(models.Model):
 
     @property
     def pharmacy_name(self):
-        """
-        Returns the pharmacy username.
-        """
-
         return self.pharmacy.username
 
     # ========================================================
@@ -127,10 +128,10 @@ class Medicine(models.Model):
     # ========================================================
 
     def __str__(self):
-
         return (
             f"{self.medicine_name} "
             f"- {self.mg} "
+            f"- Rs. {self.price} "
             f"- {self.pharmacy.username} "
             f"- Stock: {self.available_quantity}"
         )

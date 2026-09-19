@@ -1,4 +1,6 @@
+
 import React from "react";
+
 import PatientPharmacies from "./pages/patient/Pharmacies/PatientPharmacies";
 import PatientOrders from "./pages/patient/Orders/PatientOrders";
 import PatientReportVault from "./pages/patient/ReportVault/PatientReportVault";
@@ -9,11 +11,8 @@ import MedicineRequest from "./pages/patient/Medicines/MedicineRequest";
 import PharmacyDetails from "./pages/patient/Pharmacies/PharmacyDetails";
 import OrderDetails from "./pages/patient/Orders/OrderDetails";
 import ReportDetails from "./pages/patient/ReportVault/ReportDetails";
-import {
-  Navigate,
-  Route,
-  Routes,
-} from "react-router-dom";
+
+import { Navigate, Route, Routes } from "react-router-dom";
 
 import Login from "./pages/auth/Login/Login";
 import Register from "./pages/auth/Register/Register";
@@ -26,6 +25,7 @@ import AppLayout from "./components/layout/AppLayout";
 
 import PatientDashboard from "./pages/patient/Dashboard/PatientDashboard";
 import PatientMedicines from "./pages/patient/Medicines/PatientMedicines";
+
 import PharmacyDashboard from "./pages/pharmacy/Dashboard/PharmacyDashboard";
 import PharmacyMedicines from "./pages/pharmacy/Medicines/PharmacyMedicines";
 import AddMedicine from "./pages/pharmacy/Medicines/AddMedicine";
@@ -37,6 +37,8 @@ import AddPharmacyReport from "./pages/pharmacy/Reports/AddPharmacyReport";
 import EditPharmacyReport from "./pages/pharmacy/Reports/EditPharmacyReport";
 import PharmacyPatients from "./pages/pharmacy/Patients/PharmacyPatients";
 import PharmacyProfile from "./pages/pharmacy/Profile/PharmacyProfile";
+
+import Chatbot from "./chatbot/Chatbot";
 
 function TemporaryPharmacyDashboard() {
   return (
@@ -93,170 +95,180 @@ function Unauthorized() {
 function App() {
   return (
     <Routes>
-      {/* PUBLIC ROUTES */}
-      <Route element={<PublicRoute />}>
-        <Route
-          path="/login"
-          element={<Login />}
-        />
 
-        <Route
-  path="/Signup"
-  element={<Register />}
-/>
+      {/* CHATBOT WRAPPER */}
+      <Route element={<Chatbot />}>
 
-<Route
-  path="/forgot-password"
-  element={<ForgotPassword />}
-/>
+        {/* PUBLIC ROUTES */}
+        <Route element={<PublicRoute />}>
 
-        <Route
-          path="/signup"
-          element={<TemporarySignup />}
-        />
-
-        <Route
-          path="/forgot-password"
-          element={<TemporaryForgotPassword />}
-        />
-      </Route>
-
-      {/* PATIENT ROUTES */}
-      <Route
-        element={
-          <ProtectedRoute
-            allowedRoles={["patient"]}
-          />
-        }
-      >
-        <Route element={<AppLayout />}>
           <Route
-            path="/patient/dashboard"
-            element={<PatientDashboard />}
+            path="/login"
+            element={<Login />}
           />
 
           <Route
-            path="/patient/medicines"
-            element={<PatientMedicines />}
+            path="/Signup"
+            element={<Register />}
           />
 
           <Route
-  path="/patient/medicines/:id"
-  element={<MedicineDetails />}
-/>
-
-<Route
-  path="/patient/medicines/:id/request"
-  element={<MedicineRequest />}
-/>
+            path="/forgot-password"
+            element={<ForgotPassword />}
+          />
 
           <Route
-  path="/patient/pharmacies"
-  element={<PatientPharmacies />}
-/>
+            path="/signup"
+            element={<TemporarySignup />}
+          />
 
-<Route
-  path="/patient/pharmacies/:id"
-  element={<PharmacyDetails />}
-/>
-
-<Route
-  path="/patient/orders"
-  element={<PatientOrders />}
-/>
-
-<Route
-  path="/patient/orders/:id"
-  element={<OrderDetails />}
-/>
-
-<Route
-  path="/patient/report-capture"
-  element={<PatientReportCapture />}
-/>
-
-<Route
-  path="/patient/report-vault"
-  element={<PatientReportVault />}
-/>
-
-<Route
-  path="/patient/report-vault/:id"
-  element={<ReportDetails />}
-/>
-
-<Route
-  path="/patient/profile"
-  element={<PatientProfile />}
-/>
         </Route>
-      </Route>
 
-      {/* PHARMACY ROUTES */}
-      <Route
-        element={
-          <ProtectedRoute
-            allowedRoles={["pharmacy"]}
-          />
-        }
-      >
-        <Route element={<AppLayout />}>
-          <Route
-            path="/pharmacy/dashboard"
-            element={<PharmacyDashboard />}
-          />
 
-          <Route
-  path="/pharmacy/medicines"
-  element={<PharmacyMedicines />}
-/>
+        {/* PATIENT ROUTES */}
+        <Route
+          element={
+            <ProtectedRoute
+              allowedRoles={["patient"]}
+            />
+          }
+        >
+          <Route element={<AppLayout />}>
 
-<Route
-  path="/pharmacy/medicines/add"
-  element={<AddMedicine />}
-/>
+            <Route
+              path="/patient/dashboard"
+              element={<PatientDashboard />}
+            />
 
-<Route
-  path="/pharmacy/medicines/:id/edit"
-  element={<EditMedicine />}
-/>
+            <Route
+              path="/patient/medicines"
+              element={<PatientMedicines />}
+            />
 
-<Route
-  path="/pharmacy/orders"
-  element={<PharmacyOrders />}
-/>
+            <Route
+              path="/patient/medicines/:id"
+              element={<MedicineDetails />}
+            />
 
-<Route
-  path="/pharmacy/orders/:id"
-  element={<PharmacyOrderDetails />}
-/>
+            <Route
+              path="/patient/medicines/:id/request"
+              element={<MedicineRequest />}
+            />
 
-<Route
-  path="/pharmacy/reports"
-  element={<PharmacyReports />}
-/>
+            <Route
+              path="/patient/pharmacies"
+              element={<PatientPharmacies />}
+            />
 
-<Route
-  path="/pharmacy/reports/add"
-  element={<AddPharmacyReport />}
-/>
+            <Route
+              path="/patient/pharmacies/:id"
+              element={<PharmacyDetails />}
+            />
 
-<Route
-  path="/pharmacy/reports/:id/edit"
-  element={<EditPharmacyReport />}
-/>
+            <Route
+              path="/patient/orders"
+              element={<PatientOrders />}
+            />
 
-<Route
-  path="/pharmacy/patients"
-  element={<PharmacyPatients />}
-/>
+            <Route
+              path="/patient/orders/:id"
+              element={<OrderDetails />}
+            />
 
-<Route
-  path="/pharmacy/profile"
-  element={<PharmacyProfile />}
-/>
+            <Route
+              path="/patient/report-capture"
+              element={<PatientReportCapture />}
+            />
+
+            <Route
+              path="/patient/report-vault"
+              element={<PatientReportVault />}
+            />
+
+            <Route
+              path="/patient/report-vault/:id"
+              element={<ReportDetails />}
+            />
+
+            <Route
+              path="/patient/profile"
+              element={<PatientProfile />}
+            />
+
+          </Route>
         </Route>
+
+
+        {/* PHARMACY ROUTES */}
+        <Route
+          element={
+            <ProtectedRoute
+              allowedRoles={["pharmacy"]}
+            />
+          }
+        >
+          <Route element={<AppLayout />}>
+
+            <Route
+              path="/pharmacy/dashboard"
+              element={<PharmacyDashboard />}
+            />
+
+            <Route
+              path="/pharmacy/medicines"
+              element={<PharmacyMedicines />}
+            />
+
+            <Route
+              path="/pharmacy/medicines/add"
+              element={<AddMedicine />}
+            />
+
+            <Route
+              path="/pharmacy/medicines/:id/edit"
+              element={<EditMedicine />}
+            />
+
+            <Route
+              path="/pharmacy/orders"
+              element={<PharmacyOrders />}
+            />
+
+            <Route
+              path="/pharmacy/orders/:id"
+              element={<PharmacyOrderDetails />}
+            />
+
+            <Route
+              path="/pharmacy/reports"
+              element={<PharmacyReports />}
+            />
+
+            <Route
+              path="/pharmacy/reports/add"
+              element={<AddPharmacyReport />}
+            />
+
+            <Route
+              path="/pharmacy/reports/:id/edit"
+              element={<EditPharmacyReport />}
+            />
+
+            <Route
+              path="/pharmacy/patients"
+              element={<PharmacyPatients />}
+            />
+
+            <Route
+              path="/pharmacy/profile"
+              element={<PharmacyProfile />}
+            />
+
+          </Route>
+        </Route>
+
       </Route>
+
 
       {/* ADMIN ROUTES */}
       <Route
@@ -271,6 +283,7 @@ function App() {
           element={<TemporaryAdminDashboard />}
         />
       </Route>
+
 
       {/* OTHER ROUTES */}
       <Route
@@ -297,8 +310,10 @@ function App() {
           />
         }
       />
+
     </Routes>
   );
 }
 
 export default App;
+

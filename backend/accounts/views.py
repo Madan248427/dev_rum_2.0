@@ -1149,3 +1149,292 @@ class ResetPasswordView(APIView):
 
             status=status.HTTP_200_OK
         )
+    
+# ============================================================
+# accounts/views.py — REPLACE these two pieces
+#
+# 1) Add to the imports at the top of views.py:
+#
+#       from django.db import transaction
+#       from .pharmacy_verification import (
+#           is_internal_request,
+#           start_pharmacy_verification,
+#       )
+#
+# 2) Replace the whole RegisterView class with the one below.
+#
+# 3) At the bottom of views.py DELETE the old block:
+#
+#       from .serializer import PharmacyRegistrationSerializer
+#       class PharmacyRegistrationView(APIView): ...
+#
+#    and paste the PharmacyRegistrationView below instead.
+#    (accounts/urls.py does not change — the route already exists.)
+# ============================================================
+
+
+# ============================================================
+# REGISTRATION
+# ============================================================
+from .pharmacy_verification import start_pharmacy_verification,is_internal_request,transaction
+class RegisterView(
+    generics.CreateAPIView
+):
+
+    permission_classes = [
+        AllowAny
+    ]
+
+    authentication_classes = []
+
+    serializer_class = RegistrationSerializer
+
+    def create(
+        self,
+        request,
+        *args,
+        **kwargs
+    ):
+
+        serializer = self.get_serializer(
+            data=request.data
+        )
+
+        serializer.is_valid(
+            raise_exception=True
+        )
+
+        registration = serializer.save()
+
+        is_pharmacy = (
+            str(registration.role).lower() == "pharmacy"
+        )
+
+        # ----------------------------------------------------
+        # PHARMACY -> hand over to the AI agent
+        #
+        # The agent verifies the licence with the Nepal Pharmacy
+        # Council, creates the user (via /register/pharmacy/) or
+        # leaves the request denied, and emails the result.
+        # This runs in the background; the response is immediate.
+        # ----------------------------------------------------
+
+        if is_pharmacy:
+
+            license_no = (
+                getattr(registration, "pharmacy_license_number", None)
+                or request.data.get("pharmacy_license_number")
+                or ""
+            )
+
+            start_pharmacy_verification(
+                registration,
+                str(license_no),
+            )
+
+            message = (
+                "Registration submitted. We are verifying your "
+                "pharmacy licence with the Nepal Pharmacy Council. "
+                "You will receive an email with the result shortly."
+            )
+
+            verification = "in_progress"
+
+        # ----------------------------------------------------
+        # PATIENT -> unchanged, waits for admin
+        # ----------------------------------------------------
+
+        else:
+
+            message = (
+                "Registration submitted successfully. "
+                "Your account is waiting for admin verification."
+            )
+
+            verification = "manual_review"
+
+        return Response(
+            {
+                "message": message,
+
+                "registration_id": registration.id,
+
+                "status": registration.status,
+
+                "verification": verification,
+
+                "role": registration.role,
+
+                "email": registration.email,
+
+                "username": registration.username,
+            },
+
+            status=status.HTTP_201_CREATED
+        )
+
+
+# ============================================================
+# PHARMACY USER CREATION  —  INTERNAL ONLY
+#
+#   POST /api/accounts/register/pharmacy/
+#   Header: X-Internal-Key: <INTERNAL_API_KEY>
+#   JSON:   {"registration_id": 12, "license_no": "G6432", ...}
+#
+# Called by the AI agent AFTER the licence was verified.
+#
+# SECURITY: the old version of this endpoint had no authentication,
+# so anyone could POST here and create a pharmacy account without
+# verification. It is now locked with a shared secret.
+#
+# The password is never sent: the user is created from the
+# RegistrationRequest row, which already stores the hashed password
+# (same approach as RegistrationReviewView).
+# ============================================================
+
+class PharmacyRegistrationView(APIView):
+
+    authentication_classes = []
+    permission_classes = []
+
+    def post(self, request):
+
+        if not is_internal_request(request):
+
+            return Response(
+                {"detail": "Forbidden."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        registration_id = request.data.get(
+            "registration_id"
+        )
+
+        if not registration_id:
+
+            return Response(
+                {"detail": "registration_id is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        with transaction.atomic():
+
+            try:
+
+                registration = (
+                    RegistrationRequest.objects
+                    .select_for_update()
+                    .get(pk=registration_id)
+                )
+
+            except (
+                RegistrationRequest.DoesNotExist,
+                ValueError,
+            ):
+
+                return Response(
+                    {"detail": "Registration request not found."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            if str(registration.role).lower() != "pharmacy":
+
+                return Response(
+                    {"detail": "This is not a pharmacy registration."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            if registration.status != "pending":
+
+                return Response(
+                    {
+                        "detail": (
+                            "This registration has already "
+                            "been reviewed."
+                        ),
+                        "status": registration.status,
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            if Users.objects.filter(
+                email=registration.email
+            ).exists():
+
+                return Response(
+                    {"detail": "A user with this email already exists."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            if Users.objects.filter(
+                username=registration.username
+            ).exists():
+
+                return Response(
+                    {"detail": "A user with this username already exists."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            license_no = (
+                getattr(registration, "pharmacy_license_number", None)
+                or request.data.get("license_no")
+                or ""
+            )
+
+            user = Users(
+                email=registration.email,
+
+                username=registration.username,
+
+                role=registration.role,
+
+                is_active=True,
+
+                is_staff=False,
+            )
+
+            # RegistrationRequest.password is already hashed.
+            user.password = registration.password
+
+            user.pharmacy_license_number = license_no
+
+            user.save()
+
+            UserProfile.objects.create(
+                user=user,
+
+                phone_number=registration.phone_number,
+            )
+
+            # Auto-approved by the AI agent (no admin user).
+            registration.status = "accepted"
+
+            registration.reviewed_at = timezone.now()
+
+            registration.rejection_reason = ""
+
+            registration.save()
+
+        return Response(
+            {
+                "message": "Pharmacy registered successfully.",
+
+                "registration_id": registration.id,
+
+                "user": {
+                    "id": user.id,
+
+                    "email": user.email,
+
+                    "username": user.username,
+
+                    "role": user.role,
+
+                    "pharmacy_license_number": license_no,
+
+                    "is_active": user.is_active,
+                },
+            },
+
+            status=status.HTTP_201_CREATED
+        )

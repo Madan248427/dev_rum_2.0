@@ -110,6 +110,7 @@ class MedicineSerializer(serializers.ModelSerializer):
             "company_name",
             "short_description",
             "mg",
+            "price",
 
             # Stock
             "available_quantity",
